@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import scrolledtext
+from tkinter import scrolledtext, messagebox
 import threading
 import time
 import datetime
@@ -49,38 +49,42 @@ class FairRWLock:
 # ==========================================
 class AppConcurrencia:
     def __init__(self, root):
+        # Construimos la UI principal dentro de un Frame para poder mostrarla/ocultarla desde la pantalla de inicio
         self.root = root
         self.root.title("Simulador de Bloqueo Justo de Archivos")
         self.root.geometry("700x650")
         self.rw_lock = FairRWLock()
         self.file_name = "archivo_critico.txt"
-        
+
         # Limpiar archivo al iniciar
         if os.path.exists(self.file_name):
             os.remove(self.file_name)
 
-        # UI Elements
-        tk.Label(root, text="Monitor de Sección Crítica", font=("Arial", 16, "bold")).pack(pady=10)
+        # Frame principal (no empaquetado aún)
+        self.main_frame = tk.Frame(self.root)
+
+        # UI Elements dentro de main_frame
+        tk.Label(self.main_frame, text="Monitor de Sección Crítica", font=("Arial", 16, "bold")).pack(pady=10)
 
         # Espacio de visualización (Canvas)
-        self.canvas = tk.Canvas(root, width=600, height=200, bg="#ecf0f1", highlightthickness=2, highlightbackground="#bdc3c7")
+        self.canvas = tk.Canvas(self.main_frame, width=600, height=200, bg="#ecf0f1", highlightthickness=2, highlightbackground="#bdc3c7")
         self.canvas.pack(pady=10)
         # Rectángulo que representa el archivo
         self.canvas.create_rectangle(150, 40, 450, 160, outline="#7f8c8d", width=2, dash=(5, 2))
         self.canvas.create_text(300, 20, text="ARCHIVO (Sección Crítica)", font=("Arial", 10, "bold"), fill="#7f8c8d")
-        
+
         # Consola de Log
-        tk.Label(root, text="Eventos del Sistema:", font=("Arial", 10, "bold")).pack(anchor="w", padx=50)
-        self.log_area = scrolledtext.ScrolledText(root, width=75, height=12, bg="#2c3e50", fg="#ecf0f1", font=("Consolas", 9))
+        tk.Label(self.main_frame, text="Eventos del Sistema:", font=("Arial", 10, "bold")).pack(anchor="w", padx=50)
+        self.log_area = scrolledtext.ScrolledText(self.main_frame, width=75, height=12, bg="#2c3e50", fg="#ecf0f1", font=("Consolas", 9))
         self.log_area.pack(padx=10, pady=5)
 
         # Botones
-        btn_frame = tk.Frame(root)
+        btn_frame = tk.Frame(self.main_frame)
         btn_frame.pack(pady=20)
-        
+
         tk.Button(btn_frame, text="+ Añadir Lector", bg="#3498db", fg="white", font=("Arial", 10, "bold"),
                   command=self.spawn_reader, width=15).pack(side=tk.LEFT, padx=10)
-        
+
         tk.Button(btn_frame, text="+ Añadir Escritor", bg="#e74c3c", fg="white", font=("Arial", 10, "bold"),
                   command=self.spawn_writer, width=15).pack(side=tk.LEFT, padx=10)
 
@@ -161,9 +165,66 @@ class AppConcurrencia:
         w_id = random.randint(10, 99)
         threading.Thread(target=self.writer_task, args=(w_id,), daemon=True).start()
 
+    def show(self):
+        """Muestra el frame principal y configura estilos adicionales del log."""
+        # Empaquetar el frame principal
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
+        # Configurar tags del log (advertencias) si no se configuraron
+        try:
+            self.log_area.tag_config("warning", foreground="#f39c12")
+        except Exception:
+            # tag_config puede fallar si ya existe, lo ignoramos
+            pass
+
+
+class StartScreen:
+    """Pantalla de inicio con logo y 3 botones: Inicio, Soporte, Salir."""
+    def __init__(self, root, app: AppConcurrencia, support_url: str = "https://github.com/Ailya45/traffic-controller-project"):
+        self.root = root
+        self.app = app
+        self.support_url = support_url
+
+        self.frame = tk.Frame(self.root)
+        self.frame.pack(fill=tk.BOTH, expand=True)
+
+        # Logo grande
+        tk.Label(self.frame, text="Simulador de Bloqueo de Archivos", font=("Arial", 20, "bold"), fg="#2c3e50").pack(pady=60)
+
+        # Botones
+        btn_frame = tk.Frame(self.frame)
+        btn_frame.pack(pady=20)
+
+        tk.Button(btn_frame, text="Inicio", bg="#27ae60", fg="white", font=("Arial", 12, "bold"), width=20,
+                  command=self.on_start).pack(pady=8)
+
+        tk.Button(btn_frame, text="Soporte", bg="#2980b9", fg="white", font=("Arial", 12, "bold"), width=20,
+                  command=self.on_support).pack(pady=8)
+
+        tk.Button(btn_frame, text="Salir", bg="#c0392b", fg="white", font=("Arial", 12, "bold"), width=20,
+                  command=self.on_exit).pack(pady=8)
+
+    def on_start(self):
+        # Ocultar pantalla de inicio y mostrar la app principal
+        self.frame.pack_forget()
+        self.app.show()
+
+    def on_support(self):
+        # Abrir link de soporte (placeholder). Usuario puede cambiar support_url.
+        try:
+            import webbrowser
+            webbrowser.open(self.support_url)
+        except Exception as e:
+            # Mostrar simple diálogo de error
+            messagebox.showerror("Error", f"No se pudo abrir el enlace de soporte: {e}")
+
+    def on_exit(self):
+        self.root.quit()
+
 if __name__ == "__main__":
     root = tk.Tk()
-    # Configuración de colores de texto para el log
+    # Crear la aplicación (UI principal se mostrará desde StartScreen)
     app = AppConcurrencia(root)
-    app.log_area.tag_config("warning", foreground="#f39c12")
+    # Mostrar pantalla de inicio; el support_url es un placeholder que el usuario podrá cambiar
+    start = StartScreen(root, app, support_url="https://github.com/Ailya45/traffic-controller-project")
     root.mainloop()
+    
